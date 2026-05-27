@@ -2,28 +2,21 @@
 
 ## Overview
 
-Monorepo-based full-stack application designed to handle image uploads, ML inference, and real-time status tracking for Pokemon card authentication.
+A modern, highly efficient, and **100% free-tier** full-stack monorepo application. It leverages **Next.js** for a Vercel-ready frontend, **Supabase** for managed database, authentication, and file storage, and local **Tesseract.js** + the official **Pokemon TCG API** for card identification and market valuation.
 
 ---
 
 ## Frontend Stack
 
 ### Web Application
-- **Framework**: React 18+ (or Next.js 14+ for SSR/API routes)
+- **Framework**: Next.js 14+ (App Router, Server Actions, fully Vercel-compatible)
 - **Language**: TypeScript
-- **State**: TanStack Query + Zustand (or Redux Toolkit)
+- **State**: TanStack Query (React Query) + Zustand
 - **Styling**: Tailwind CSS + Shadcn/ui components
-- **Mobile/Camera**: WebRTC (getUserMedia API)
-- **Real-time**: WebSocket / Server-Sent Events (SSE)
-- **Build**: Vite or Next.js (Turbopack)
-- **Testing**: Vitest + React Testing Library + Playwright E2E
-
-### Key Libraries
-- `zustand` or `@reduxjs/toolkit` — state management
-- `@tanstack/react-query` — data fetching & caching
-- `react-router-dom` — routing (if SPA)
-- `zod` — validation (shared with backend)
-- `socket.io-client` — real-time updates (if using WebSocket)
+- **Mobile/Camera**: WebRTC (getUserMedia API) for image capture
+- **Auth Interface**: Supabase Auth UI or Custom forms using `@supabase/supabase-js`
+- **Build & Hosting**: Next.js (Turbopack) hosted on **Vercel**
+- **Testing**: Playwright for E2E, Vitest for unit testing
 
 ---
 
@@ -31,316 +24,87 @@ Monorepo-based full-stack application designed to handle image uploads, ML infer
 
 ### API Server
 - **Runtime**: Node.js 20+ LTS
-- **Framework**: Express.js or Fastify or NestJS
+- **Framework**: Express.js
 - **Language**: TypeScript
-- **Authentication**: JWT + OAuth2 (Auth0 / Okta / Firebase Auth)
-- **API Protocol**: GraphQL (optional) or REST
-- **Validation**: Zod or Joi
-- **Logging**: Winston or Pino
+- **Authentication**: **Supabase Auth** (Tokens verified via JWT bearer middleware inside the Express server using `@supabase/supabase-js`)
+- **Database Access**: **Prisma ORM** (Connected to Supabase PostgreSQL database)
+- **Validation**: Zod (Shared with frontend)
+- **Logging**: Morgan + Winston
 - **Testing**: Jest + Supertest
 
-### Database
-- **Primary DB**: PostgreSQL 15+
-  - Stores users, scans, collections, pricing snapshots
-  - PostGIS extension for spatial queries (if needed)
-- **Cache**: Redis 7+ (session store, job queue, real-time counters)
-- **Search** (Phase 5+): Elasticsearch or MeiliSearch (for collection search)
-
-### File Storage
-- **Uploads**: AWS S3 or GCS (bucket with signed URLs for direct upload)
-- **Derivatives**: Same bucket, prefixed by scan ID (sanitized images, heatmaps)
-- **CDN**: CloudFront or Cloudflare for cached access
-
-### Job Queue & Async Processing
-- **Queue**: Bull Queue (Redis-backed) or AWS SQS
-- **Workers**: Node.js workers or Lambda functions
-  - OCR processing
-  - Model inference (forwarded to GPU workers)
-  - Email/alert dispatch
+### Database & Storage (Supabase Free Tier)
+- **Primary Database**: **Supabase PostgreSQL** (Free tier, fully managed, hosted on AWS, up to 500MB storage).
+- **File Storage**: **Supabase Storage** (Free tier, up to 1GB bucket capacity). Used to host card photo uploads via signed upload/download URLs.
+- **Cache / Job Queue**: Optional local Redis (via Bull) for queueing or simplified async background processing chains running directly within the Node.js process during development.
 
 ---
 
-## AI/ML Stack
+## AI/ML Stack & Integrations
 
-### Core Dependencies
-- **OCR**: Tesseract.js (browser) or cloud API (Google Cloud Vision, Azure Computer Vision)
-- **Image Processing**: OpenCV (via `opencv4nodejs`) or Python subprocess
-- **Deep Learning**: 
-  - PyTorch or TensorFlow
-  - Model serving: vLLM, Ray Serve, or Triton Inference Server
-  - Quantization: ONNX Runtime for CPU inference
+### Card Text Extraction (OCR)
+- **Engine**: **Tesseract.js** (Pure Javascript OCR running locally in the Node.js API/worker environment).
+- **Cost**: **$0.00 (100% Free)**. Runs fully local, has zero rate limits, and requires no API keys or credit cards.
+- **Features**: Extracts set abbreviations, card name fragments, and card numbers.
 
-### GPU Infrastructure
-- **Serving**: Kubernetes cluster or managed service (Modal, Replicate, Lambda)
-- **Model Registry**: MLflow or Hugging Face Model Hub
-- **Monitoring**: Prometheus + Grafana (for inference latency, queue depth)
-
-### Data Science Tooling
-- **Development**: Jupyter, PyTorch, scikit-learn, pandas
-- **Evaluation Harness**: Custom Python scripts (Phase 0 baseline)
-- **Experiment Tracking**: Weights & Biases or MLflow
+### Reference Database & Valuation
+- **Provider**: **Pokemon TCG API** (Official [pokemontcg.io](https://pokemontcg.io)).
+- **Cost**: **$0.00 (100% Free)**. Basic access is completely free; a free developer API key increases limits to 20,000 requests/day.
+- **Features**:
+  - Comprehensive metadata lookup (Base Set through current releases).
+  - High-fidelity official reference card image URLs.
+  - Real-time market prices from TCGPlayer and Cardmarket (satisfies Phase 4 pricing out-of-the-box).
 
 ---
 
-## Infrastructure & DevOps
+## Infrastructure & DevOps (Seamless Serverless Stack)
 
-### Containerization
-- **Docker**: Multi-stage Dockerfiles for web, API, workers
-- **Container Registry**: GitHub Container Registry, ECR, or Docker Hub
+### Development Environment
+- Minimal setup: Next.js + Express API dev servers run concurrently.
+- PostgreSQL database, Auth, and Storage are hosted in the cloud for free by Supabase, eliminating complex local database configurations.
 
-### Orchestration
-- **Development**: Docker Compose
-- **Production**: 
-  - Kubernetes (EKS, GKE, AKS) for workload scaling
-  - Or managed platforms: Vercel (frontend), Railway/Render (backend), AWS Lambda (workers)
-
-### CI/CD
-- **Git**: GitHub (mono-repo structure with protected `main`)
-- **CI Pipeline**: GitHub Actions
-  - Lint (ESLint, Prettier)
-  - Type-check (tsc)
-  - Unit tests (Jest)
-  - Security scan (Dependabot, Snyk)
-  - Build & push Docker images
-- **Deployment**: GitOps (ArgoCD) or platform-native (Vercel, Railway)
-
-### Monitoring & Observability
-- **Logging**: ELK Stack or CloudWatch / Stackdriver
-- **Metrics**: Prometheus + Grafana
-- **Tracing**: Jaeger or DataDog
-- **Alerting**: PagerDuty or Opsgenie
-- **Error Tracking**: Sentry
-
-### Infrastructure as Code
-- **IaC**: Terraform or AWS CDK
-- **Configuration**: Helm (Kubernetes charts)
+### Deployment (Production)
+- **Frontend (`apps/web`)**: Deployed directly to **Vercel** with one click.
+- **API Backend (`apps/api`)**: Deployed as Vercel Serverless Functions, or on a free/low-cost container service like Render, Railway, or Fly.io.
+- **Database, Auth & Storage**: Managed in the cloud on **Supabase**.
 
 ---
 
 ## Security Stack
 
 ### Authentication & Authorization
-- **Auth Provider**: Auth0, Firebase Auth, or custom JWT
-- **RBAC**: Role-based access control (admin, pro, free tiers)
-- **Session**: Secure httpOnly cookies + CSRF protection
+- **Token Exchange**: Bearer JWT tokens issued by Supabase Auth are sent in the HTTP `Authorization` header.
+- **Verification**: The Express backend middleware validates the session by calling Supabase's secure token verification API, guaranteeing only authenticated users access protected routes.
+- **IDOR Protection**: Prisma queries are strictly scoped using the authenticated `userId` matched to the Supabase Auth UUID.
 
-### Data Security
-- **Encryption at Rest**: AWS KMS, GCS CMEK
-- **Encryption in Transit**: TLS 1.3
-- **Secrets Management**: AWS Secrets Manager, HashiCorp Vault
-- **Key Rotation**: Automated quarterly rotation
-
-### WAF & Bot Protection
-- **WAF**: AWS WAF or Cloudflare
-- **Bot Detection**: Cloudflare Bot Management or reCAPTCHA
-- **Rate Limiting**: Redis-based with leaky bucket algorithm
-
-### Scanning & Compliance
-- **SAST**: SonarQube or Snyk Code
-- **Dependency Scanning**: Dependabot, Snyk
-- **Container Scanning**: Trivy
-- **Secrets Scanning**: TruffleHog
+### File Upload Safety
+- **Direct-to-Bucket**: Frontend uploads directly to Supabase Storage using highly restricted, temporary signed URLs.
+- **Sanitization**: Uploaded images are re-encoded and metadata (EXIF) is stripped before card processing.
 
 ---
 
-## Performance & Scaling
+## Performance & Scaling (Free Tier Optimization)
 
-### Client-Side
-- **Bundle Size Target**: <200KB (gzipped) for main app
-- **Lighthouse Target**: 85+ (Performance, Best Practices)
-- **Mobile Optimization**: Lazy loading, code splitting, adaptive bitrate images
-
-### Server-Side
-- **P95 Response Time**: <200ms (API)
-- **Database Query**: Query optimization, indexed lookups, caching layer
-- **Horizontal Scaling**: Stateless API servers behind load balancer
-
-### GPU Workers
-- **Batching**: Accumulate requests, batch process (8–16 images/batch)
-- **Model Quantization**: FP16 or INT8 for faster inference
-- **Multi-GPU**: Data parallelism across GPUs
-- **Autoscaling**: Scale workers based on queue depth (min: 2, max: 20)
+- **Next.js Caching**: Dynamic routes are cached where appropriate to minimize database and API requests.
+- **Prisma Connection Pooling**: Configured with direct Supabase connection poolers to handle concurrent serverless requests.
+- **Image Optimization**: Uploaded images are scaled down on the client side before submission to minimize storage usage and network bandwidth.
 
 ---
 
 ## Testing Strategy
 
-### Test Pyramid
-```
-        / \
-       / E2E \         (Playwright, WebDriver)
-      /-------\
-     / Integration\   (Jest + test containers, API+DB)
-    /-----------\
-   / Unit Tests   \  (Jest, Vitest)
-  /_______________\
-```
-
-### Testing Coverage Targets
-- **Unit Tests**: >80% coverage (critical paths)
-- **Integration Tests**: Key APIs, auth, file upload, scan creation
-- **E2E Tests**: 
-  - Login flow
-  - Upload → OCR → match → view result
-  - OCR correction + rerun
-  - Mobile camera capture (Phase 6)
-
-### Performance Testing
-- **Load Tests**: k6 or JMeter (target: 1000 concurrent users)
-- **Stress Tests**: Gradual increase to breaking point
-- **Soak Tests**: 24–72h at target load
-
-### Security Testing
-- **Penetration Testing**: Third-party pentest (Phase 8)
-- **Fuzzing**: AFL or libFuzzer on input parsing
-- **OWASP Top 10**: Checklist validation
+- **Unit Tests**: Coverage on schemas, parsers, and custom matching algorithms using Jest/Vitest.
+- **Integration Tests**: Verification of JWT token validations, Supabase Storage uploads, and Pokemon TCG API card matching pipelines.
+- **E2E Tests**: Playwright scripts simulating user registration, login, card upload, OCR processing, and result viewing.
 
 ---
 
-## Deployment Pipeline
+## Phase-by-Phase Technology Rollout
 
-```
-Local Dev (Docker Compose)
-  ↓
-GitHub PR → CI Pipeline (lint/test/build)
-  ↓
-Approval + Merge to main
-  ↓
-Auto-Deploy to Staging
-  ↓
-Smoke Tests + E2E Tests
-  ↓
-Manual QA / Metrics Review
-  ↓
-Production Deployment (Blue-Green or Canary)
-  ↓
-Monitoring + Rollback Automation
-```
-
----
-
-## Service Architecture (Microservices-Ready)
-
-### Web Service
-- Next.js or React SPA
-- Serves UI + API routes (BFF pattern)
-
-### API Service
-- Core REST/GraphQL server
-- User auth, scan CRUD, result queries
-
-### OCR Service
-- Dedicated service or subprocess
-- Accepts image ROI + metadata
-- Returns structured fields
-
-### Model Inference Service
-- Python FastAPI or Flask
-- Handles authenticity model, condition models
-- Separate GPU-optimized instance
-
-### Notification Service
-- Sends emails, SMS alerts
-- Queued via Redis Bull
-- Template engine (Handlebars)
-
-### Data Pipeline Service
-- Reference data ingestion
-- Price aggregation + caching
-- Scheduled jobs (cron)
-
----
-
-## Development Workflow
-
-### Local Setup
-```bash
-git clone <repo>
-cd pokemon-card-auth
-
-# Install dependencies (monorepo)
-npm install
-
-# Start local services (Docker Compose)
-docker-compose up -d
-
-# Run dev servers
-npm run dev              # Web + API dev server
-npm run ai:dev          # Python AI service (if local)
-
-# Run tests
-npm run test            # All tests
-npm run test:e2e        # E2E only
-```
-
-### Monorepo Structure
-```
-pokemon-card-auth/
-├── packages/
-│   ├── shared-types/        # TypeScript types + zod schemas
-│   ├── ui-components/       # Shared React components
-│   └── sdk/                 # Client SDK
-├── apps/
-│   ├── web/                 # Next.js frontend
-│   ├── api/                 # Express API server
-│   ├── workers/             # Bull queue workers
-│   └── ai/                  # Python AI services (FastAPI)
-├── infra/                   # Terraform / IaC
-├── tests/                   # Shared E2E + integration tests
-├── docker-compose.yml
-├── tsconfig.base.json
-└── package.json
-```
-
----
-
-## Cost Optimization
-
-### Phase 1 (MVP)
-- Managed PostgreSQL (AWS RDS or Neon)
-- Single API instance (t3.medium)
-- Single GPU instance (g4dn.xlarge, ~$0.35/hr)
-- S3 storage (est. $5–10/month for dev)
-
-### Phase 8 (Production)
-- Kubernetes cluster (EKS) or managed container service
-- Auto-scaled GPU workers (2–20 instances)
-- Multi-AZ database with read replicas
-- CDN for derivatives
-- Estimated monthly cost: $2K–5K (depending on traffic)
-
----
-
-## Version Pinning & Updates
-
-- **Node.js**: Lock to LTS version (e.g., 20.x)
-- **Dependencies**: Use `package-lock.json` (npm) or `yarn.lock`
-- **Python**: Lock ML dependencies in `requirements.lock` or `poetry.lock`
-- **Docker Base Images**: Pin to specific digest (not `latest`)
-- **Database**: Upgrade strategy documented (Phase 1)
-
----
-
-## Disaster Recovery & Backup
-
-- **Database Backup**: Daily snapshots (AWS RDS automated backups)
-- **File Storage**: S3 versioning enabled; lifecycle policy for old objects
-- **Secrets Rotation**: Quarterly; automated via CI/CD
-- **DR Drill**: Monthly restore test (Phase 8)
-- **RTO Target**: 4 hours
-- **RPO Target**: 1 hour
-
----
-
-## Phase-by-Phase Tech Decisions
-
-| Phase | Key Tech Additions |
-|-------|-------------------|
-| Phase 1 | PostgreSQL, Redis, S3, Auth0, Node.js API |
-| Phase 2 | OpenCV4Nodejs (image processing) |
-| Phase 3 | PyTorch model serving, GPU infrastructure |
-| Phase 4 | MeiliSearch or Elasticsearch (optional) |
-| Phase 5 | Analytics (Segment/Mixpanel), export (PDF generation) |
-| Phase 6 | WebRTC (camera), SSE/WebSocket (real-time updates) |
-| Phase 7 | Advanced ML (condition classifiers), GPU batching |
-| Phase 8 | Kubernetes, multi-region failover, comprehensive monitoring |
+| Phase | Core Stack Elements | Cost |
+|-------|---------------------|------|
+| **Phase 1 (MVP)** | Next.js (Vercel) + Express + Supabase DB/Auth/Storage + Tesseract.js + Pokemon TCG API | **$0.00** |
+| **Phase 2 (CV)** | Local client-side cropping or lightweight OpenCV package | **$0.00** |
+| **Phase 3 (AI Auth)** | Python FastAPI service running on free GPU/CPU serving platforms (e.g. Hugging Face, Modal free tier) | **$0.00** |
+| **Phase 4 (Pricing)** | Augmented Pokemon TCG API price caching | **$0.00** |
+| **Phase 5 (Analytics)** | Free tier Segment / Mixpanel integrations | **$0.00** |
+| **Phase 6 (Camera)** | HTML5 getUserMedia browser API | **$0.00** |
