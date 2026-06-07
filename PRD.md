@@ -113,6 +113,20 @@
 
 ---
 
+### EPIC 1.1.1 — Infrastructure Simplification for MVP
+
+#### STORY: Define minimal dev/prod infrastructure with MongoDB and Supabase
+- **DoD**:
+  - Use MongoDB as the primary database
+  - Use Supabase Auth for user management and session handling
+  - Remove AWS-specific dependencies from the MVP stack
+  - Keep infrastructure small: local Docker compose for MongoDB, no mandatory Redis or artifact storage
+- **Tests**:
+  - Architecture diagram updated
+  - Environment templates and compose files reflect the simplified stack
+
+---
+
 ### EPIC 1.2 — Authentication + User System
 
 #### STORY: Implement auth (email/OAuth) + sessions
