@@ -7,6 +7,7 @@
 export { UserSchema, type User } from './auth';
 export { ScanSchema, type Scan, ScanStatusSchema, type ScanStatus } from './scan';
 export { ApiResponseSchema, type ApiResponse } from './api';
+export { ObjectIdSchema, DateLikeSchema } from './utils';
 
 // Export all schemas for validation
 export * from './auth';
