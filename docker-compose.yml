@@ -1,7 +1,8 @@
 version: '3.9'
 
+# Minimal docker-compose for local development: MongoDB only.
+# Optional services (mongo-express, redis) were removed to simplify the stack.
 services:
-  # MongoDB Database
   mongodb:
     image: mongo:7-alpine
     container_name: pokemon-card-mongodb
@@ -21,42 +22,8 @@ services:
     networks:
       - pokemon-card-network
 
-  # MongoDB UI (optional debugging)
-  mongo-express:
-    image: mongo-express:latest
-    container_name: pokemon-card-mongo-express
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: password
-      ME_CONFIG_MONGODB_URL: mongodb://admin:password@mongodb:27017/
-    ports:
-      - '8081:8081'
-    depends_on:
-      - mongodb
-    networks:
-      - pokemon-card-network
-
-  # Redis Cache (optional - for job queue in future)
-  redis:
-    image: redis:7-alpine
-    container_name: pokemon-card-redis
-    ports:
-      - '6379:6379'
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - pokemon-card-network
-    profiles:
-      - 'optional'
-
 volumes:
   mongodb_data:
-  redis_data:
 
 networks:
   pokemon-card-network:
