@@ -1,0 +1,86 @@
+name: CI - Lint, Type Check, Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    services:
+      mongodb:
+        image: mongo:7-alpine
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+          MONGO_INITDB_DATABASE: pokemon_card_auth
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\" --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm run test
+        env:
+          MONGODB_URI: mongodb://root:password@localhost:27017/pokemon_card_auth?authSource=admin
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Report build status
+        if: always()
+        run: echo "Build status: ${{ job.status }}"

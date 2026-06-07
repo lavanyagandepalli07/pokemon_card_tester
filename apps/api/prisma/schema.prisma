@@ -1,0 +1,51 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ScanUpload {
+  id               String   @id @default(uuid())
+  userId           String
+  s3Key            String
+  originalFilename String
+  size             Int
+  mimeType         String
+  status           String   // pending, completed, failed
+  createdAt        DateTime @default(now())
+  scans            Scan[]
+
+  @@map("scan_uploads")
+}
+
+model Scan {
+  id           String      @id @default(uuid())
+  userId       String
+  uploadId     String
+  upload       ScanUpload  @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  status       String      // pending, processing, ocr_complete, matching, completed, failed
+  ocrResult    Json?       // Stores cardName, set, cardNumber, hp, type, confidence, rawText
+  matchResult  Json?       // Stores referenceCardId, confidence, alternatives
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("scans")
+}
+
+model ReferenceCard {
+  id         String   @id @default(uuid())
+  set        String
+  number     String
+  name       String
+  hp         Int?
+  type       String?
+  imageS3Key String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([set, number])
+  @@index([set, number])
+  @@map("reference_cards")
+}

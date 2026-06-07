@@ -1,0 +1,37 @@
+{
+  "name": "@pokemon-card-auth/web",
+  "version": "0.1.0",
+  "description": "Next.js frontend for Pokemon Card Authentication",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:prod": "next build",
+    "start": "next start",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "clean": "rm -rf .next dist"
+  },
+  "dependencies": {
+    "@pokemon-card-auth/shared-types": "*",
+    "@supabase/supabase-js": "^2.106.2",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0"
+  }
+}

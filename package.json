@@ -1,0 +1,52 @@
+{
+  "name": "pokemon-card-auth",
+  "version": "0.1.0",
+  "description": "Pokemon Card Authentication Platform - AI-powered card identification and authenticity detection",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "build:prod": "turbo run build:prod",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "test:e2e": "turbo run test:e2e",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules .turbo dist",
+    "db:seed": "npm run --workspace=apps/api db:seed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lavanyagandepalli07/pokemon_card_tester.git"
+  },
+  "keywords": [
+    "pokemon",
+    "authentication",
+    "ai",
+    "card-identification"
+  ],
+  "author": "Lavanya Gandepalli",
+  "license": "MIT",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0",
+    "turbo": "^1.12.0",
+    "typescript": "^5.3.0"
+  },
+  "bugs": {
+    "url": "https://github.com/lavanyagandepalli07/pokemon_card_tester/issues"
+  },
+  "homepage": "https://github.com/lavanyagandepalli07/pokemon_card_tester#readme"
+}

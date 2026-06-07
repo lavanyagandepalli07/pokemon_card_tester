@@ -63,30 +63,27 @@
 **Complexity**: High | **Story Points**: 21
 
 **DoD**:
-- [ ] User sign-up & login implemented (email + password OR OAuth)
-- [ ] JWT + secure session storage (httpOnly cookies)
+- [ ] User sign-up & login implemented (email + password)
+- [ ] JWT tokens issued + verified
 - [ ] Protected routes enforced (API middleware + frontend guards)
-- [ ] Logout clears session
+- [ ] Logout clears token
 - [ ] Rate limiting on login attempts
 
 **Tasks**:
 - [ ] **Backend**:
-  - [ ] Set up auth provider (Auth0 / Firebase Auth / custom JWT)
-    - [ ] Install SDK/library
-    - [ ] Configure environment variables
-  - [ ] Create User table (PostgreSQL)
-    - [ ] id (PK), email (unique), password_hash, plan_tier, created_at, updated_at
-  - [ ] Create Session table
-    - [ ] id (PK), user_id (FK), token, expires_at
-  - [ ] Implement auth routes
-    - [ ] `POST /auth/signup` → Create user, issue session
-    - [ ] `POST /auth/login` → Validate credentials, issue session
-    - [ ] `POST /auth/logout` → Invalidate session
-    - [ ] `GET /auth/me` → Return current user (protected)
+  - [ ] Create User schema (Mongoose)
+    - [ ] email (unique), passwordHash, plan_tier, created_at, updated_at
+  - [ ] Implement auth routes (Express)
+    - [ ] `POST /auth/signup` → Validate input, hash password (bcryptjs), create user, issue JWT
+    - [ ] `POST /auth/login` → Validate email/password, issue JWT
+    - [ ] `POST /auth/logout` → Clear token on frontend
+    - [ ] `GET /auth/me` → Return current user (JWT protected)
   - [ ] Auth middleware
-    - [ ] JWT validation
-    - [ ] Rate limiting (Redis-backed)
-  - [ ] CSRF protection (if needed)
+    - [ ] JWT verification + validation
+    - [ ] Extract userId from token claims
+    - [ ] Rate limiting (simple memory-based or Redis)
+  - [ ] Password validation (min 8 chars, mix of cases)
+  - [ ] Input sanitization (email normalization)
 
 - [ ] **Frontend**:
   - [ ] Create login page (`/login`)
@@ -95,9 +92,47 @@
     - [ ] Submit handler → API call
     - [ ] Error display
     - [ ] Link to signup
+    - [ ] Store JWT in localStorage or httpOnly cookie
   - [ ] Create signup page (`/signup`)
     - [ ] Email + password + confirm inputs
     - [ ] Validation rules (password strength)
+    - [ ] Submit handler → API call
+    - [ ] Success → redirect to dashboard
+  - [ ] Protected route wrapper
+    - [ ] Redirect to `/login` if not authenticated
+  - [ ] API client with auth
+    - [ ] `auth.signup(email, password)`
+    - [ ] `auth.login(email, password)`
+    - [ ] `auth.logout()`
+    - [ ] `auth.getCurrentUser()`
+
+**Tests**:
+- [ ] Unit:
+  - [ ] Password hashing/validation
+  - [ ] JWT token generation/validation
+  - [ ] Form validation (Zod schemas)
+- [ ] Integration:
+  - [ ] Signup endpoint (duplicate email rejection)
+  - [ ] Login endpoint (valid/invalid credentials)
+  - [ ] Protected route returns 401 without auth
+  - [ ] JWT token persists across requests
+  - [ ] Rate limiting triggered
+- [ ] E2E (Playwright):
+  - [ ] Sign up flow end-to-end
+  - [ ] Login flow end-to-end
+  - [ ] Logout clears session
+  - [ ] Protected page redirects unauthenticated user to login
+  - [ ] After login, session persists on page reload
+
+**Acceptance Criteria**:
+- [ ] User can sign up with email/password
+- [ ] User can log in with valid credentials
+- [ ] Invalid credentials rejected (clear error message)
+- [ ] Protected routes redirect to login when unauthenticated
+- [ ] Session persists after page reload (within token expiry)
+- [ ] Multiple failed login attempts rate-limited
+
+**Blockers/Dependencies**: Monorepo setup (Epic 1.1), MongoDB running
     - [ ] Submit handler → API call
   - [ ] Create protected route wrapper (HOC or middleware)
     - [ ] Redirect to `/login` if not authenticated
@@ -183,24 +218,24 @@
 **Complexity**: High | **Story Points**: 21
 
 **DoD**:
-- [ ] Client requests signed S3 upload URL
-- [ ] Client uploads directly to S3 with progress tracking
-- [ ] Metadata (filename, size, content-type) stored in DB
-- [ ] Malicious uploads rejected (MIME type validation)
+- [ ] Client uploads image to API (POST /uploads)
+- [ ] Backend validates MIME type + size
+- [ ] Image stored as Base64 in MongoDB scan document
+- [ ] Upload progress tracking
+- [ ] Simple, no-cost approach (no S3)
 
 **Tasks**:
 - [ ] **Backend**:
-  - [ ] Set up AWS SDK (or equivalent cloud storage SDK)
-  - [ ] Create ScanUpload table
-    - [ ] id, user_id (FK), s3_key, original_filename, size, mime_type, created_at, status
-  - [ ] `POST /uploads/presigned-url` → Generate signed S3 upload URL (protected)
+  - [ ] Create upload endpoint `POST /uploads`
+    - [ ] Accept `multipart/form-data` with image file
     - [ ] Validate MIME type (whitelist: image/jpeg, image/png)
-    - [ ] Validate size (<50MB for MVP)
-    - [ ] Generate unique S3 key per upload
-    - [ ] Return presigned URL (expires in 15 min)
-    - [ ] Store metadata in DB with status='pending'
-  - [ ] `GET /uploads/:uploadId/status` → Poll upload status
-  - [ ] Webhook from S3 or Lambda → Mark upload as 'completed' when object stored
+    - [ ] Validate size (<10MB for MVP)
+    - [ ] Compress image with Sharp
+    - [ ] Convert to Base64
+    - [ ] Create ScanUpload document in MongoDB
+    - [ ] Return upload ID + image metadata
+  - [ ] `GET /uploads/:uploadId` → Retrieve image Base64
+  - [ ] Error handling for invalid files
 
 - [ ] **Frontend**:
   - [ ] Create upload page (`/upload`)
@@ -209,36 +244,35 @@
     - [ ] Preview selected image
     - [ ] Upload button
   - [ ] Upload flow:
-    - [ ] Fetch presigned URL from backend
-    - [ ] Upload file to S3 directly (axios + progress events)
-    - [ ] Track upload progress bar
-    - [ ] Poll `/uploads/:uploadId/status` until completed
-    - [ ] Redirect to scan creation on success
-  - [ ] Error handling (upload failure, network, etc.)
+    - [ ] Select file
+    - [ ] Show preview
+    - [ ] POST file to `/uploads` endpoint (multipart)
+    - [ ] Track upload progress (XMLHttpRequest or fetch)
+    - [ ] On success: create scan + redirect to scan page
+  - [ ] Error handling (validation, network, etc.)
 
 **Tests**:
 - [ ] Unit: MIME type validation, size validation
 - [ ] Security:
   - [ ] MIME spoof test (e.g., .exe with image MIME header)
-  - [ ] Oversized file rejection
-  - [ ] Presigned URL expiry validation
-  - [ ] CORS policy test
+  - [ ] Oversized file rejection (>10MB)
+  - [ ] XSS protection in filename
 - [ ] Integration:
-  - [ ] Presigned URL generation + S3 upload
-  - [ ] Metadata persisted to DB
+  - [ ] Upload endpoint stores Base64 in MongoDB
+  - [ ] Metadata persisted correctly
 - [ ] E2E (Playwright):
-  - [ ] Upload valid image (progress bar visible)
-  - [ ] Upload invalid MIME type (rejected with message)
-  - [ ] Upload oversized file (rejected with message)
+  - [ ] Upload valid image (progress visible)
+  - [ ] Upload invalid MIME type (rejected)
+  - [ ] Upload oversized file (rejected)
   - [ ] Successful upload redirects to scan page
 
 **Acceptance Criteria**:
-- [ ] User can upload image (JPEG/PNG, <50MB)
+- [ ] User can upload image (JPEG/PNG, <10MB)
 - [ ] Upload progress visible
 - [ ] Invalid uploads rejected with clear errors
-- [ ] Metadata stored in DB with correct S3 key
+- [ ] Image stored as Base64 in MongoDB
 
-**Blockers/Dependencies**: Auth (Epic 1.2), AWS S3 setup
+**Blockers/Dependencies**: Auth (Epic 1.2)
 
 ---
 

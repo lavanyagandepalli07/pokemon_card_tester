@@ -2,7 +2,7 @@
 
 ## Overview
 
-A modern, highly efficient, and **100% free-tier** full-stack monorepo application. It leverages **Next.js** for a Vercel-ready frontend, **Supabase** for managed database, authentication, and file storage, and local **Tesseract.js** + the official **Pokemon TCG API** for card identification and market valuation.
+A **lean, 100% free** full-stack monorepo. It uses **MongoDB** for document storage, **Next.js** for the frontend, **Express.js** for the API, and **Tesseract.js + Pokemon TCG API** for card identification—all running locally or on free platforms. **Zero AWS, zero paid services.**
 
 ---
 
@@ -26,16 +26,23 @@ A modern, highly efficient, and **100% free-tier** full-stack monorepo applicati
 - **Runtime**: Node.js 20+ LTS
 - **Framework**: Express.js
 - **Language**: TypeScript
-- **Authentication**: **Supabase Auth** (Tokens verified via JWT bearer middleware inside the Express server using `@supabase/supabase-js`)
-- **Database Access**: **Prisma ORM** (Connected to Supabase PostgreSQL database)
+- **Authentication**: Custom JWT (simple, no external dependencies)
+- **Database**: **MongoDB** (document-based, simple schemas, free-tier: MongoDB Atlas or local)
+- **File Storage**: **Base64 in MongoDB** (images stored as BSON binary in documents)
 - **Validation**: Zod (Shared with frontend)
 - **Logging**: Morgan + Winston
 - **Testing**: Jest + Supertest
 
-### Database & Storage (Supabase Free Tier)
-- **Primary Database**: **Supabase PostgreSQL** (Free tier, fully managed, hosted on AWS, up to 500MB storage).
-- **File Storage**: **Supabase Storage** (Free tier, up to 1GB bucket capacity). Used to host card photo uploads via signed upload/download URLs.
-- **Cache / Job Queue**: Optional local Redis (via Bull) for queueing or simplified async background processing chains running directly within the Node.js process during development.
+### Database & Storage (MongoDB - 100% Free)
+- **Primary Database**: **MongoDB** (free Atlas tier: 512MB storage, or local Docker)
+  - Users collection
+  - Scans collection (with embedded images as Base64)
+  - Reference cards collection (cached from Pokemon TCG API)
+  - Simple, no migrations needed
+- **File Storage**: **Embedded in MongoDB as Base64/BSON**
+  - Images stored directly in scan documents
+  - No separate S3 or CDN needed
+- **Cache / Job Queue**: **Optional Redis** (via Bull) or simplified inline async using Node.js event emitters
 
 ---
 
@@ -63,30 +70,42 @@ A modern, highly efficient, and **100% free-tier** full-stack monorepo applicati
 - PostgreSQL database, Auth, and Storage are hosted in the cloud for free by Supabase, eliminating complex local database configurations.
 
 ### Deployment (Production)
-- **Frontend (`apps/web`)**: Deployed directly to **Vercel** with one click.
-- **API Backend (`apps/api`)**: Deployed as Vercel Serverless Functions, or on a free/low-cost container service like Render, Railway, or Fly.io.
-- **Database, Auth & Storage**: Managed in the cloud on **Supabase**.
+- **Frontend (`apps/web`)**: Deploy to **Vercel** (free tier)
+- **API Backend (`apps/api`)**: Deploy to **Render.com** or **Railway** (free tier)
+- **Database**: **MongoDB Atlas** (free tier: 512MB shared cluster) or **Self-hosted Docker**
+- **Total cost**: $0/month (all free tiers)
 
 ---
 
 ## Security Stack
 
 ### Authentication & Authorization
-- **Token Exchange**: Bearer JWT tokens issued by Supabase Auth are sent in the HTTP `Authorization` header.
-- **Verification**: The Express backend middleware validates the session by calling Supabase's secure token verification API, guaranteeing only authenticated users access protected routes.
-- **IDOR Protection**: Prisma queries are strictly scoped using the authenticated `userId` matched to the Supabase Auth UUID.
+- **Strategy**: Simple JWT-based auth
+  - User provides email + password
+  - API hashes password with bcrypt, stores in MongoDB
+  - On login: verify password, issue JWT token
+  - Frontend stores token in localStorage or httpOnly cookie
+  - Protected routes validate JWT middleware
+- **Dependencies**: `jsonwebtoken`, `bcryptjs` (both free, no external services)
+- **IDOR Protection**: All queries scoped by authenticated `userId` from JWT claims
 
 ### File Upload Safety
-- **Direct-to-Bucket**: Frontend uploads directly to Supabase Storage using highly restricted, temporary signed URLs.
-- **Sanitization**: Uploaded images are re-encoded and metadata (EXIF) is stripped before card processing.
+- **Strategy**: Simple Base64 encoding in MongoDB
+  - Frontend reads file → Base64 encode → POST to API
+  - API validates file size + MIME type
+  - Stored as `data.image` in scan document
+  - Retrieved by encoding image_id + serving Base64 directly
+- **Sanitization**: Sharp (local image processing) re-encodes images to strip EXIF
+- **No external storage**: Everything in MongoDB, zero infrastructure overhead
 
 ---
 
 ## Performance & Scaling (Free Tier Optimization)
 
-- **Next.js Caching**: Dynamic routes are cached where appropriate to minimize database and API requests.
-- **Prisma Connection Pooling**: Configured with direct Supabase connection poolers to handle concurrent serverless requests.
-- **Image Optimization**: Uploaded images are scaled down on the client side before submission to minimize storage usage and network bandwidth.
+- **MongoDB Indexing**: Indexes on `userId`, `status`, `createdAt` for fast queries
+- **Image Compression**: Client-side (Compressor.js) reduces image size before upload
+- **Base64 Efficiency**: Images are compressed to <500KB before encoding
+- **Minimal Dependencies**: Lean stack = fast startup + low memory footprint
 
 ---
 
