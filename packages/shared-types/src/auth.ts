@@ -1,16 +1,35 @@
 import { z } from 'zod';
 
+// Accept MongoDB ObjectId-like values and coerce to string
+export const ObjectIdSchema = z.preprocess((val) => {
+  if (val == null) return val;
+  if (typeof val === 'string') return val;
+  try {
+    // Some ObjectId implementations have a toString method
+    return (val as any).toString();
+  } catch (e) {
+    return val;
+  }
+}, z.string());
+
+// Accept Date or ISO string and coerce to Date
+export const DateLikeSchema = z.preprocess((val) => {
+  if (val instanceof Date) return val;
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return val;
+}, z.date());
+
 export const PlanTierSchema = z.enum(['free', 'pro', 'pro_plus']);
 export type PlanTier = z.infer<typeof PlanTierSchema>;
 
 export const UserSchema = z.object({
-  _id: z.string().optional(), // MongoDB ObjectId
+  _id: ObjectIdSchema.optional(), // MongoDB ObjectId
   supabaseId: z.string().optional(),
   email: z.string().email(),
   name: z.string().optional(),
   planTier: PlanTierSchema.default('free'),
-  createdAt: z.date().default(() => new Date()),
-  updatedAt: z.date().default(() => new Date()),
+  createdAt: DateLikeSchema.default(() => new Date()),
+  updatedAt: DateLikeSchema.default(() => new Date()),
 });
 
 export type User = z.infer<typeof UserSchema>;

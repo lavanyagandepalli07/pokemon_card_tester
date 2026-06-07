@@ -1,5 +1,23 @@
 import { z } from 'zod';
 
+// Accept MongoDB ObjectId-like values and coerce to string
+export const ObjectIdSchema = z.preprocess((val) => {
+  if (val == null) return val;
+  if (typeof val === 'string') return val;
+  try {
+    return (val as any).toString();
+  } catch (e) {
+    return val;
+  }
+}, z.string());
+
+// Accept Date or ISO string and coerce to Date
+export const DateLikeSchema = z.preprocess((val) => {
+  if (val instanceof Date) return val;
+  if (typeof val === 'string' || typeof val === 'number') return new Date(val);
+  return val;
+}, z.date());
+
 export const ScanStatusSchema = z.enum([
   'pending',
   'processing',
@@ -39,14 +57,14 @@ export const MatchResultSchema = z.object({
 export type MatchResult = z.infer<typeof MatchResultSchema>;
 
 export const ScanSchema = z.object({
-  _id: z.string().optional(), // MongoDB ObjectId
-  userId: z.string(),
+  _id: ObjectIdSchema.optional(), // MongoDB ObjectId
+  userId: ObjectIdSchema,
   image_base64: z.string(), // Full image as Base64
   status: ScanStatusSchema,
   ocrResult: OCRResultSchema.optional(),
   matchResult: MatchResultSchema.optional(),
-  createdAt: z.date().default(() => new Date()),
-  updatedAt: z.date().default(() => new Date()),
+  createdAt: DateLikeSchema.default(() => new Date()),
+  updatedAt: DateLikeSchema.default(() => new Date()),
 });
 
 export type Scan = z.infer<typeof ScanSchema>;
