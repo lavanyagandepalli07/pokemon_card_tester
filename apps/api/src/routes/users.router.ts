@@ -2,17 +2,22 @@ import { Router, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { UpdateProfileSchema } from '@pokemon-card-auth/shared-types';
+import { User } from '../models';
 
 const router = Router();
 
 /**
  * GET /users/profile
- * Return authenticated user's profile
+ * Return authenticated user's profile from MongoDB + Supabase
  */
 router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const { data, error } = await supabaseAdmin.auth.admin.getUserById(req.user!.id);
+  const supabaseId = req.user!.id;
+  const [profileDoc, supabaseResponse] = await Promise.all([
+    User.findOne({ supabaseId }).lean(),
+    supabaseAdmin.auth.admin.getUserById(supabaseId),
+  ]);
 
-  if (error || !data.user) {
+  if (supabaseResponse.error || !supabaseResponse.data.user) {
     return res.status(404).json({
       success: false,
       error: { code: 'USER_NOT_FOUND', message: 'User profile not found' },
@@ -20,18 +25,26 @@ router.get('/profile', requireAuth, async (req: AuthenticatedRequest, res: Respo
     });
   }
 
-  return res.json({
-    success: true,
-    data: {
-      id: data.user.id,
-      email: data.user.email,
-      name: data.user.user_metadata?.name ?? null,
-      planTier: data.user.user_metadata?.plan_tier ?? 'free',
-      createdAt: data.user.created_at,
-      updatedAt: data.user.updated_at ?? data.user.created_at,
-    },
-    timestamp: new Date(),
-  });
+  const supabaseUser = supabaseResponse.data.user;
+  const mergedProfile = {
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    name: profileDoc?.name ?? supabaseUser.user_metadata?.name ?? null,
+    planTier: profileDoc?.planTier ?? 'free',
+    createdAt: supabaseUser.created_at,
+    updatedAt: supabaseUser.updated_at ?? supabaseUser.created_at,
+  };
+
+  if (!profileDoc) {
+    await User.create({
+      supabaseId,
+      email: supabaseUser.email ?? '',
+      name: mergedProfile.name ?? '',
+      planTier: mergedProfile.planTier,
+    });
+  }
+
+  return res.json({ success: true, data: mergedProfile, timestamp: new Date() });
 });
 
 /**
@@ -53,13 +66,11 @@ router.patch('/profile', requireAuth, async (req: AuthenticatedRequest, res: Res
   }
 
   const { name, email } = parsed.data;
-
-  // Build update payload
+  const supabaseId = req.user!.id;
   const updatePayload: Record<string, unknown> = {};
+
   if (email) updatePayload.email = email;
-  if (name !== undefined) {
-    updatePayload.user_metadata = { name };
-  }
+  if (name !== undefined) updatePayload.user_metadata = { name };
 
   if (Object.keys(updatePayload).length === 0) {
     return res.status(400).json({
@@ -69,15 +80,10 @@ router.patch('/profile', requireAuth, async (req: AuthenticatedRequest, res: Res
     });
   }
 
-  const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
-    req.user!.id,
-    updatePayload
-  );
+  const { data, error } = await supabaseAdmin.auth.admin.updateUserById(supabaseId, updatePayload);
 
   if (error || !data.user) {
-    const msg = error?.message?.includes('already registered')
-      ? 'Email already in use'
-      : error?.message ?? 'Update failed';
+    const msg = error?.message?.includes('already registered') ? 'Email already in use' : error?.message ?? 'Update failed';
     return res.status(400).json({
       success: false,
       error: { code: 'UPDATE_FAILED', message: msg },
@@ -85,13 +91,22 @@ router.patch('/profile', requireAuth, async (req: AuthenticatedRequest, res: Res
     });
   }
 
+  await User.findOneAndUpdate(
+    { supabaseId },
+    {
+      email: data.user.email ?? email ?? '',
+      name: name ?? data.user.user_metadata?.name ?? '',
+    },
+    { upsert: true, new: true }
+  );
+
   return res.json({
     success: true,
     data: {
       id: data.user.id,
       email: data.user.email,
       name: data.user.user_metadata?.name ?? null,
-      planTier: data.user.user_metadata?.plan_tier ?? 'free',
+      planTier: 'free',
       createdAt: data.user.created_at,
       updatedAt: data.user.updated_at ?? data.user.created_at,
     },

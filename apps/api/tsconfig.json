@@ -2,13 +2,15 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../../",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"],
-      "@shared/*": ["../../../packages/shared-types/src/*"]
+      "@shared/*": ["../../../packages/shared-types/src/*"],
+      "@pokemon-card-auth/shared-types": ["../../../packages/shared-types/src"],
+      "@pokemon-card-auth/shared-types/*": ["../../../packages/shared-types/src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../../packages/shared-types/src"],
   "exclude": ["node_modules", "dist", "tests"]
 }

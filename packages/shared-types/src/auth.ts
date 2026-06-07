@@ -5,8 +5,8 @@ export type PlanTier = z.infer<typeof PlanTierSchema>;
 
 export const UserSchema = z.object({
   _id: z.string().optional(), // MongoDB ObjectId
+  supabaseId: z.string().optional(),
   email: z.string().email(),
-  passwordHash: z.string(),
   name: z.string().optional(),
   planTier: PlanTierSchema.default('free'),
   createdAt: z.date().default(() => new Date()),

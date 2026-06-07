@@ -45,7 +45,7 @@ export async function requireAuth(
       email: supabaseUser.email ?? '',
     };
 
-    next();
+    return next();
   } catch (err) {
     return res.status(401).json({
       success: false,

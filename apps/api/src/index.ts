@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import { connectDB } from './lib/db';
 import authRouter from './routes/auth.router';
 import usersRouter from './routes/users.router';
 import uploadsRouter from './routes/uploads.router';
@@ -14,6 +15,8 @@ import scansRouter from './routes/scans.router';
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
+
+connectDB();
 
 // ─── Security Middleware ───────────────────────────────────────────────────────
 app.use(helmet());

@@ -27,7 +27,7 @@ export class StorageService {
   /**
    * Get a signed upload URL (or a mock local URL if not configured)
    */
-  static async getSignedUploadUrl(filename: string, contentType: string): Promise<{ signedUrl: string; key: string }> {
+  static async getSignedUploadUrl(filename: string): Promise<{ signedUrl: string; key: string }> {
     const uniqueName = `${Date.now()}-${filename}`;
     const bucket = process.env.S3_BUCKET_NAME || 'pokemon-card-uploads';
 

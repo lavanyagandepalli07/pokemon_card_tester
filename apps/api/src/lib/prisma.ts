@@ -1,20 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import Database from 'better-sqlite3';
+// This file remains for compatibility with legacy workspace paths.
+// The API now uses MongoDB and Mongoose for application data.
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
-const dbPath = dbUrl.replace('file:', '');
-
-const db = new Database(dbPath);
-const adapter = new PrismaBetterSqlite3(db);
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma = null as unknown as never;

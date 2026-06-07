@@ -1,12 +1,12 @@
 import Tesseract from 'tesseract.js';
 import path from 'path';
-import { IOCRResult } from '../models';
+import { OCRResult } from '@pokemon-card-auth/shared-types';
 
 /**
  * Run Tesseract OCR on an uploaded image file.
  * Returns structured card fields extracted from raw text.
  */
-export async function runOCR(filename: string): Promise<IOCRResult> {
+export async function runOCR(filename: string): Promise<OCRResult> {
   const uploadDir = process.env.UPLOAD_DIR || './public/uploads';
   const filePath = path.resolve(process.cwd(), uploadDir, filename);
 
@@ -25,7 +25,7 @@ export async function runOCR(filename: string): Promise<IOCRResult> {
 /**
  * Parse raw OCR text into structured card fields.
  */
-function parseCardText(rawText: string): IOCRResult {
+function parseCardText(rawText: string): OCRResult {
   const lines = rawText
     .split('\n')
     .map(l => l.trim())

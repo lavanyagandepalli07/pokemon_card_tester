@@ -45,7 +45,7 @@ router.post(
           timestamp: new Date(),
         });
       }
-      next();
+      return next();
     });
   },
   async (req: AuthenticatedRequest, res: Response) => {

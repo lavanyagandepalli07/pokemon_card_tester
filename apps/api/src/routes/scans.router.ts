@@ -1,18 +1,16 @@
 import { Router, Response } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
-import { prisma } from '../lib/prisma';
 import { CreateScanSchema, UpdateOCRSchema } from '@pokemon-card-auth/shared-types';
 import Queue from 'bull';
+import { Scan } from '../models';
 
 const router = Router();
-
-// Connect to Redis for Bull Queue
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const scanQueue = new Queue('scan-queue', redisUrl);
 
 /**
  * POST /scans
- * Initiate a scan for an upload
+ * Create a scan with a Base64 image payload
  */
 router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const parsed = CreateScanSchema.safeParse(req.body);
@@ -24,36 +22,17 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =
     });
   }
 
-  const { uploadId } = parsed.data;
+  const { image_base64 } = parsed.data;
   const userId = req.user!.id;
 
   try {
-    const upload = await prisma.scanUpload.findUnique({
-      where: { id: uploadId },
+    const scan = await Scan.create({
+      userId,
+      image_base64,
+      status: 'pending',
     });
 
-    if (!upload || upload.userId !== userId) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'UPLOAD_NOT_FOUND', message: 'Upload not found or access denied' },
-        timestamp: new Date(),
-      });
-    }
-
-    // Create a Scan record
-    const scan = await prisma.scan.create({
-      data: {
-        userId,
-        uploadId,
-        status: 'pending',
-      },
-    });
-
-    // Add job to Bull queue
-    await scanQueue.add('process-scan', {
-      scanId: scan.id,
-      uploadKey: upload.s3Key,
-    });
+    await scanQueue.add('process-scan', { scanId: scan._id.toString() });
 
     return res.status(201).json({
       success: true,
@@ -79,10 +58,7 @@ router.get('/:scanId', requireAuth, async (req: AuthenticatedRequest, res: Respo
   const userId = req.user!.id;
 
   try {
-    const scan = await prisma.scan.findUnique({
-      where: { id: scanId },
-      include: { upload: true },
-    });
+    const scan = await Scan.findById(scanId).lean();
 
     if (!scan || scan.userId !== userId) {
       return res.status(404).json({
@@ -92,11 +68,7 @@ router.get('/:scanId', requireAuth, async (req: AuthenticatedRequest, res: Respo
       });
     }
 
-    return res.json({
-      success: true,
-      data: scan,
-      timestamp: new Date(),
-    });
+    return res.json({ success: true, data: scan, timestamp: new Date() });
   } catch (err: any) {
     console.error('Failed to get scan:', err);
     return res.status(500).json({
@@ -118,20 +90,12 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
   const status = req.query.status as string | undefined;
 
   try {
-    const where: any = { userId };
-    if (status) {
-      where.status = status;
-    }
+    const filter: any = { userId };
+    if (status) filter.status = status;
 
-    const [scans, total] = await prisma.$transaction([
-      prisma.scan.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-        include: { upload: true },
-      }),
-      prisma.scan.count({ where }),
+    const [scans, total] = await Promise.all([
+      Scan.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit).lean(),
+      Scan.countDocuments(filter),
     ]);
 
     return res.json({
@@ -174,11 +138,7 @@ router.patch('/:scanId/ocr', requireAuth, async (req: AuthenticatedRequest, res:
   }
 
   try {
-    const scan = await prisma.scan.findUnique({
-      where: { id: scanId },
-      include: { upload: true },
-    });
-
+    const scan = await Scan.findById(scanId);
     if (!scan || scan.userId !== userId) {
       return res.status(404).json({
         success: false,
@@ -187,8 +147,14 @@ router.patch('/:scanId/ocr', requireAuth, async (req: AuthenticatedRequest, res:
       });
     }
 
-    // Merge new OCR values into existing ocrResult
-    const currentOcr: any = scan.ocrResult || {};
+    const currentOcr = scan.ocrResult ?? ({} as {
+      cardName?: string;
+      set?: string;
+      cardNumber?: string;
+      hp?: number;
+      type?: string;
+      rawText?: string;
+    });
     const updatedOcr = {
       ...currentOcr,
       cardName: parsed.data.cardName ?? currentOcr.cardName ?? '',
@@ -196,29 +162,17 @@ router.patch('/:scanId/ocr', requireAuth, async (req: AuthenticatedRequest, res:
       cardNumber: parsed.data.cardNumber ?? currentOcr.cardNumber ?? '',
       hp: parsed.data.hp ?? currentOcr.hp,
       type: parsed.data.type ?? currentOcr.type,
-      confidence: 1.0, // Manual correction sets confidence to 100%
+      confidence: 1.0,
+      rawText: currentOcr.rawText ?? '',
     };
 
-    // Update scan status and ocrResult in DB
-    const updatedScan = await prisma.scan.update({
-      where: { id: scanId },
-      data: {
-        ocrResult: updatedOcr,
-        status: 'ocr_complete',
-      },
-    });
+    scan.ocrResult = updatedOcr;
+    scan.status = 'ocr_complete';
+    await scan.save();
 
-    // Enqueue match-only job (we skip OCR because it was manually corrected)
-    await scanQueue.add('process-match', {
-      scanId: scan.id,
-      ocrResult: updatedOcr,
-    });
+    await scanQueue.add('process-match', { scanId: scan._id.toString(), ocrResult: updatedOcr });
 
-    return res.json({
-      success: true,
-      data: updatedScan,
-      timestamp: new Date(),
-    });
+    return res.json({ success: true, data: scan, timestamp: new Date() });
   } catch (err: any) {
     console.error('Failed to update OCR and rerun match:', err);
     return res.status(500).json({

@@ -1,4 +1,18 @@
-import { ReferenceCard, IMatchResult, IOCRResult } from '../models';
+import { ReferenceCard } from '../models';
+import { OCRResult } from '@pokemon-card-auth/shared-types';
+
+export interface MatchAlternative {
+  referenceCardId: string;
+  name: string;
+  confidence: number;
+}
+
+export interface IMatchResult {
+  referenceCardId: string;
+  referenceCard: Record<string, unknown>;
+  confidence: number;
+  alternatives: MatchAlternative[];
+}
 
 /**
  * Levenshtein distance between two strings (case-insensitive)
@@ -32,12 +46,13 @@ function similarity(a: string, b: string): number {
  * 1) Try exact match on (set, number)
  * 2) Fuzzy match by name similarity across all cards
  */
-export async function matchCard(ocr: IOCRResult): Promise<IMatchResult> {
+export async function matchCard(ocr: OCRResult): Promise<IMatchResult> {
   const allCards = await ReferenceCard.find({}).lean();
 
   if (allCards.length === 0) {
     return {
       referenceCardId: '',
+      referenceCard: {} as Record<string, unknown>,
       confidence: 0,
       alternatives: [],
     };
@@ -48,16 +63,16 @@ export async function matchCard(ocr: IOCRResult): Promise<IMatchResult> {
     let score = 0;
 
     // Exact set+number match → very high weight
-    const setMatch = ocr.set && card.set.toLowerCase() === ocr.set.toLowerCase();
-    const numMatch = ocr.cardNumber && card.number.replace(/\s/g, '') === ocr.cardNumber.replace(/\s/g, '');
+    const setMatch = ocr.set && card.setName.toLowerCase() === ocr.set.toLowerCase();
+    const numMatch = ocr.cardNumber && card.cardNumber.replace(/\s/g, '') === ocr.cardNumber.replace(/\s/g, '');
 
     if (setMatch && numMatch) {
       score = 0.99;
     } else {
       // Weighted fuzzy scoring
-      const nameSim = similarity(ocr.cardName, card.name);
-      const setSim   = similarity(ocr.set, card.set);
-      const numSim   = numMatch ? 1 : similarity(ocr.cardNumber, card.number);
+      const nameSim = similarity(ocr.cardName, card.cardName);
+      const setSim = similarity(ocr.set, card.setName);
+      const numSim = numMatch ? 1 : similarity(ocr.cardNumber, card.cardNumber);
       score = nameSim * 0.5 + setSim * 0.3 + numSim * 0.2;
     }
 
@@ -70,13 +85,13 @@ export async function matchCard(ocr: IOCRResult): Promise<IMatchResult> {
   const top = scored[0];
   const alternatives = scored.slice(1, 6).map(s => ({
     referenceCardId: String(s.card._id),
-    name: s.card.name,
+    name: s.card.cardName,
     confidence: Math.round(s.score * 100) / 100,
   }));
 
   return {
     referenceCardId: String(top.card._id),
-    referenceCard: top.card as Record<string, unknown>,
+    referenceCard: top.card as unknown as Record<string, unknown>,
     confidence: Math.round(top.score * 100) / 100,
     alternatives,
   };

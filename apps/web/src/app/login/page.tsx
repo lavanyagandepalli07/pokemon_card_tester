@@ -5,24 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-
-  const levels = [
-    { label: '', color: 'transparent' },
-    { label: 'Weak', color: '#ef4444' },
-    { label: 'Fair', color: '#f59e0b' },
-    { label: 'Good', color: '#3b82f6' },
-    { label: 'Strong', color: '#10b981' },
-  ];
-
-  return { score, ...levels[score] };
-}
-
 export default function LoginPage() {
   const { signIn } = useAuth();
   const router = useRouter();

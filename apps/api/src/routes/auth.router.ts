@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { CreateUserSchema, LoginCredentialsSchema } from '@pokemon-card-auth/shared-types';
+import { User } from '../models';
 
 const router = Router();
 
@@ -28,22 +29,34 @@ router.post('/signup', async (req: Request, res: Response) => {
     user_metadata: { name: name ?? '' },
   });
 
-  if (error) {
-    const status = error.message.includes('already registered') ? 409 : 400;
+  if (error || !data.user) {
+    const status = error?.message?.includes('already registered') ? 409 : 400;
     return res.status(status).json({
       success: false,
-      error: { code: 'SIGNUP_FAILED', message: error.message },
+      error: { code: 'SIGNUP_FAILED', message: error?.message ?? 'Signup failed' },
       timestamp: new Date(),
     });
   }
 
-  // Sign in immediately after creation to get a session
+  const supabaseUser = data.user;
+
+  await User.findOneAndUpdate(
+    { supabaseId: supabaseUser.id },
+    {
+      supabaseId: supabaseUser.id,
+      email: supabaseUser.email ?? email,
+      name: name ?? supabaseUser.user_metadata?.name ?? '',
+      planTier: 'free',
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
   const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (signInError || !signInData.session) {
+  if (signInError || !signInData?.session) {
     return res.status(201).json({
       success: true,
       data: { message: 'Account created. Please log in.' },
@@ -55,12 +68,12 @@ router.post('/signup', async (req: Request, res: Response) => {
     success: true,
     data: {
       user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata?.name ?? null,
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        name: supabaseUser.user_metadata?.name ?? null,
         planTier: 'free',
-        createdAt: data.user.created_at,
-        updatedAt: data.user.updated_at ?? data.user.created_at,
+        createdAt: supabaseUser.created_at,
+        updatedAt: supabaseUser.updated_at ?? supabaseUser.created_at,
       },
       accessToken: signInData.session.access_token,
       expiresAt: signInData.session.expires_at,
@@ -84,10 +97,9 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   const { email, password } = parsed.data;
-
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
 
-  if (error || !data.session || !data.user) {
+  if (error || !data?.session || !data.user) {
     return res.status(401).json({
       success: false,
       error: { code: 'LOGIN_FAILED', message: 'Invalid email or password' },
@@ -95,16 +107,27 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   }
 
+  const supabaseUser = data.user;
+  await User.findOneAndUpdate(
+    { supabaseId: supabaseUser.id },
+    {
+      supabaseId: supabaseUser.id,
+      email: supabaseUser.email ?? email,
+      name: supabaseUser.user_metadata?.name ?? '',
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
   return res.json({
     success: true,
     data: {
       user: {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.user_metadata?.name ?? null,
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        name: supabaseUser.user_metadata?.name ?? null,
         planTier: 'free',
-        createdAt: data.user.created_at,
-        updatedAt: data.user.updated_at ?? data.user.created_at,
+        createdAt: supabaseUser.created_at,
+        updatedAt: supabaseUser.updated_at ?? supabaseUser.created_at,
       },
       accessToken: data.session.access_token,
       expiresAt: data.session.expires_at,
@@ -119,8 +142,9 @@ router.post('/login', async (req: Request, res: Response) => {
  */
 router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const token = req.headers.authorization?.substring(7) ?? '';
-  // Supabase admin signOut by user ID
-  await supabaseAdmin.auth.admin.signOut(token);
+  if (token) {
+    await supabaseAdmin.auth.admin.signOut(token).catch(() => null);
+  }
 
   return res.json({
     success: true,
@@ -144,15 +168,27 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response) 
     });
   }
 
+  const supabaseUser = data.user;
+  const userDoc = await User.findOne({ supabaseId: supabaseUser.id });
+
+  if (!userDoc) {
+    await User.create({
+      supabaseId: supabaseUser.id,
+      email: supabaseUser.email ?? '',
+      name: supabaseUser.user_metadata?.name ?? '',
+      planTier: 'free',
+    });
+  }
+
   return res.json({
     success: true,
     data: {
-      id: data.user.id,
-      email: data.user.email,
-      name: data.user.user_metadata?.name ?? null,
-      planTier: data.user.user_metadata?.plan_tier ?? 'free',
-      createdAt: data.user.created_at,
-      updatedAt: data.user.updated_at ?? data.user.created_at,
+      id: supabaseUser.id,
+      email: supabaseUser.email,
+      name: supabaseUser.user_metadata?.name ?? null,
+      planTier: userDoc?.planTier ?? 'free',
+      createdAt: supabaseUser.created_at,
+      updatedAt: supabaseUser.updated_at ?? supabaseUser.created_at,
     },
     timestamp: new Date(),
   });
